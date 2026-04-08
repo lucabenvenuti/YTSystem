@@ -46,7 +46,8 @@ def get_transcript(video_id):
         fetched = ytt.fetch(video_id, languages=['it', 'en'])
         return " ".join([snippet.text for snippet in fetched])[:15000]
     except Exception as e:
-        print(f"DEBUG: Transcript not available for {video_id}: {str(e)[:80]}")
+        print(f"DEBUG Error Type: {type(e).__name__}")
+        print(f"DEBUG Error Message: {str(e)}")
         return None
 
 if __name__ == "__main__":
