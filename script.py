@@ -79,7 +79,7 @@ if __name__ == "__main__":
                 )
 
                 response = client.models.generate_content(
-                    model="gemini-1.5-flash-8b",
+                    model="gemini-3.1-flash-lite-preview",
                     contents=prompt,
                 )
                 summary = response.text.strip().replace("\n", "<br>")
