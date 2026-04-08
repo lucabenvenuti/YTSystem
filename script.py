@@ -1,11 +1,9 @@
 import os
 import requests
 import google.generativeai as genai
-from mailjet_rest import Client
 import re
-import sys
+from datetime import datetime
 
-# --- CONFIGURATION (2 Original + 10 New Verified) ---
 CHANNELS = {
     "Franchino Er Criminale": "UCi0pS-WsnV_m0tC99EqInEw",
     "Mr. RIP": "UCXpV8WIs0fAnu0TeHIhEq_Q",
@@ -25,59 +23,42 @@ def get_latest_vid(channel_id):
     try:
         url = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
         r = requests.get(url, timeout=15)
-        # Regex to pull the most recent video ID from the RSS feed
         vids = re.findall(r'<yt:videoId>(.*?)</yt:videoId>', r.text)
-        return vids[0] if vids else None
-    except Exception as e:
-        print(f"Error fetching {channel_id}: {e}")
-        return None
+        titles = re.findall(r'<title>(.*?)</title>', r.text)
+        return (vids[0], titles[1]) if vids else (None, None)
+    except: return (None, None)
 
 if __name__ == "__main__":
-    # 1. API Setup
-    api_key = os.getenv("GEMINI_API_KEY")
-    mj_key = os.getenv("MAILJET_API_KEY")
-    mj_sec = os.getenv("MAILJET_SECRET_KEY")
-    sender = os.getenv("SENDER_EMAIL")
-
-    if not all([api_key, mj_key, mj_sec, sender]):
-        print("Error: Missing GitHub Secrets")
-        sys.exit(1)
-
-    genai.configure(api_key=api_key)
+    genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
     model = genai.GenerativeModel('gemini-1.5-flash')
-    mailjet = Client(auth=(mj_key, mj_sec), version='v3.1')
-
-    # 2. Logic
-    html_body = "<h1>YouTube Intelligence: Latest Summaries</h1><hr>"
-    found_any = False
     
+    rss_items = ""
     for name, cid in CHANNELS.items():
-        vid = get_latest_vid(cid)
+        vid, v_title = get_latest_vid(cid)
         if vid:
-            found_any = True
             url = f"https://www.youtube.com/watch?v={vid}"
-            # Prompting Gemini to provide a concise summary
-            prompt = f"Summarize this video in 3 punchy bullet points: {url}"
-            
             try:
-                res = model.generate_content(prompt)
-                summary = res.text
-            except:
-                summary = "Summary unavailable for this video."
+                res = model.generate_content(f"Summarize in 3 bullets: {url}")
+                summary = res.text.replace("\n", "<br>")
+            except: summary = "Summary failed."
             
-            html_body += f"<h3>{name}</h3><p><a href='{url}'>Watch Video</a></p><p>{summary}</p><hr>"
+            rss_items += f"""
+            <item>
+                <title>{name}: {v_title}</title>
+                <link>{url}</link>
+                <description>{summary}</description>
+                <pubDate>{datetime.now().strftime('%a, %d %b %Y %H:%M:%S +0000')}</pubDate>
+            </item>"""
 
-    # 3. Email Dispatch
-    if found_any:
-        data = {
-          'Messages': [{
-            "From": {"Email": sender, "Name": "YT Bot"},
-            "To": [{"Email": "benvenutiluca@icloud.com"}],
-            "Subject": "YouTube Intelligence Report (Updated Channel List)",
-            "HTMLPart": html_body
-          }]
-        }
-        mailjet.send.create(data=data)
-        print("Success: Email dispatched.")
-    else:
-        print("No new videos found.")
+    rss_feed = f"""<?xml version="1.0" encoding="UTF-8" ?>
+    <rss version="2.0">
+    <channel>
+        <title>My YouTube Intelligence</title>
+        <link>https://github.com/{os.getenv('GITHUB_REPOSITORY')}</link>
+        <description>Latest AI Summaries</description>
+        {rss_items}
+    </channel>
+    </rss>"""
+
+    with open("feed.xml", "w") as f:
+        f.write(rss_feed)
