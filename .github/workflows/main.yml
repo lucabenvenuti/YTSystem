@@ -8,18 +8,23 @@ jobs:
   run-bot:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Allows the bot to save the feed.xml
+      contents: write # CRITICAL: Allows the bot to push the feed.xml
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install Deps
+
+      - name: Install Dependencies
         run: pip install requests google-generativeai
+
       - name: Run Bot
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python script.py
+
       - name: Commit and Push Feed
         run: |
           git config --global user.name "GitHub Action"
