@@ -42,32 +42,44 @@ def get_latest_vid(channel_id):
 
 def get_transcript(video_id):
     try:
-        # --- CRITICAL DEBUGS ---
+        # --- MAXIMUM DIAGNOSTIC DEBUGS ---
         import youtube_transcript_api
-        print(f"DEBUG: Library Version: {getattr(youtube_transcript_api, '__version__', 'unknown')}")
-        print(f"DEBUG: Library Path: {youtube_transcript_api.__file__}")
+        import os
+        from youtube_transcript_api import YouTubeTranscriptApi
         
+        # Check Version & Location
+        v = getattr(youtube_transcript_api, '__version__', 'unknown')
+        p = getattr(youtube_transcript_api, '__file__', 'unknown')
+        print(f"DEBUG: Library Version: {v}")
+        print(f"DEBUG: Library Path: {p}")
+        
+        # Check Cookies File Existence and Size
         cookies_path = os.getenv("YOUTUBE_COOKIES_FILE", "cookies.txt")
         if os.path.exists(cookies_path):
-            print(f"DEBUG: Cookie file found at {cookies_path}")
+            size = os.path.getsize(cookies_path)
+            print(f"DEBUG: Cookie file found at {cookies_path} (Size: {size} bytes)")
         else:
-            print(f"DEBUG: WARNING - Cookie file NOT found at {cookies_path}")
-        # -----------------------
-
-        # Use the explicit module.class path
-        transcript_list = youtube_transcript_api.YouTubeTranscriptApi.list_transcripts(video_id, cookies=cookies_path)
+            print(f"DEBUG: CRITICAL - Cookie file NOT found at {cookies_path}")
         
-        try:
-            transcript = transcript_list.find_transcript(['it', 'en'])
-        except:
-            transcript = transcript_list.find_generated_transcript(['it', 'en'])
+        # Check if the class actually has the method we want
+        if hasattr(YouTubeTranscriptApi, 'get_transcript'):
+            print("DEBUG: Method 'get_transcript' exists in YouTubeTranscriptApi")
+        else:
+            print("DEBUG: CRITICAL - Method 'get_transcript' MISSING from YouTubeTranscriptApi")
+        # ---------------------------------
 
-        fetched = transcript.fetch()
+        # The actual attempt
+        fetched = YouTubeTranscriptApi.get_transcript(
+            video_id, 
+            languages=['it', 'en'], 
+            cookies=cookies_path
+        )
+        
         return " ".join([snippet['text'] for snippet in fetched])[:15000]
 
     except Exception as e:
-        print(f"DEBUG Error Type: {type(e).__name__}")
-        print(f"DEBUG Error Message: {str(e)}")
+        # This will catch RequestBlocked, NoTranscriptFound, or any weird errors
+        print(f"DEBUG Error for {video_id}: {type(e).__name__} - {str(e)}")
         return None
 
 if __name__ == "__main__":
