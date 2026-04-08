@@ -3,6 +3,7 @@ import requests
 import google.genai as genai
 import re
 import time
+import random
 from datetime import datetime
 from youtube_transcript_api import YouTubeTranscriptApi
 
@@ -37,57 +38,44 @@ def get_latest_vid(channel_id):
         vids = re.findall(r'<yt:videoId>(.*?)</yt:videoId>', r.text)
         titles = re.findall(r'<title>(.*?)</title>', r.text)
         return (vids[0], titles[1]) if vids else (None, None)
-    except:
+    except Exception as e:
+        print(f"RSS Fetch Error for {channel_id}: {e}")
         return (None, None)
 
 def get_transcript(video_id):
     try:
-        # --- DIAGNOSTIC DEBUGS ---
-        import youtube_transcript_api
-        from youtube_transcript_api import YouTubeTranscriptApi
-        import os
-        
+        # --- HUMAN JITTER DELAY ---
+        # Random delay to avoid 429 "Too Many Requests"
+        delay = random.uniform(8, 18)
+        print(f"DEBUG: Waiting {delay:.2f}s for {video_id}...")
+        time.sleep(delay)
+
         cookies_path = os.getenv("YOUTUBE_COOKIES_FILE", "cookies.txt")
-        print(f"DEBUG: Starting fetch for {video_id}")
-        # -------------------------
-
-        # Method 1: The direct call (What you want)
+        
+        # 1. Fetch transcript list
+        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id, cookies=cookies_path)
+        
         try:
-            print(f"DEBUG: Attempting direct fetch (it, en)...")
-            fetched = YouTubeTranscriptApi.get_transcript(
-                video_id, 
-                languages=['it', 'en'], 
-                cookies=cookies_path
-            )
-            return " ".join([snippet['text'] for snippet in fetched])[:15000]
+            # 2. Try Manual (IT or EN)
+            transcript = transcript_list.find_transcript(['it', 'en'])
+            print(f"DEBUG: [{video_id}] Found manual transcript ({transcript.language_code})")
+        except:
+            # 3. Fallback to Auto-generated (IT or EN)
+            transcript = transcript_list.find_generated_transcript(['it', 'en'])
+            print(f"DEBUG: [{video_id}] Found auto-generated transcript ({transcript.language_code})")
 
-        except Exception as inner_e:
-            print(f"DEBUG: Direct fetch failed. Error: {type(inner_e).__name__}")
-            print(f"DEBUG: Inspecting all available transcripts to see if 'TranscriptsDisabled' is real...")
-            
-            # Method 2: Inspection to see what IS there
-            transcript_list = YouTubeTranscriptApi.list_transcripts(video_id, cookies=cookies_path)
-            
-            # Log available languages to see if YouTube is hiding them
-            available_manual = [t.language_code for t in transcript_list._manually_created_transcripts.values()]
-            available_generated = [t.language_code for t in transcript_list._generated_transcripts.values()]
-            
-            print(f"DEBUG: Manual languages found: {available_manual}")
-            print(f"DEBUG: Auto languages found: {available_generated}")
-
-            # Try to grab literally anything that exists
-            all_codes = available_manual + available_generated
-            if all_codes:
-                transcript = transcript_list.find_transcript([all_codes[0]])
-                fetched = transcript.fetch()
-                print(f"DEBUG: Recovery successful using: {transcript.language_code}")
-                return " ".join([snippet['text'] for snippet in fetched])[:15000]
-            else:
-                print("DEBUG: YouTube returned ZERO transcripts for this video.")
-                return None
+        fetched = transcript.fetch()
+        return " ".join([snippet['text'] for snippet in fetched])[:15000]
 
     except Exception as e:
-        print(f"DEBUG Final Error for {video_id}: {type(e).__name__} - {str(e)}")
+        error_msg = str(e)
+        print(f"DEBUG: Failed {video_id} - {type(e).__name__}")
+        
+        # If rate limited, we wait even longer for the next attempt
+        if "429" in error_msg or "Too Many Requests" in error_msg:
+            print("CRITICAL: Rate limit hit. Cooling down for 45s...")
+            time.sleep(45)
+            
         return None
 
 if __name__ == "__main__":
@@ -100,12 +88,8 @@ if __name__ == "__main__":
         vid, v_title = get_latest_vid(cid)
         if vid:
             url = f"https://www.youtube.com/watch?v={vid}"
-            print(f"Processing {name}...")
-            
-            # --- ADD THIS: A random delay to mimic human browsing ---
-            import random
-            time.sleep(random.randint(5, 10))
-            
+            print(f"Processing {name}: {v_title}")
+
             transcript_text = get_transcript(vid)
             label = "TRANSCRIPT" if transcript_text else "TITLE-ONLY"
 
@@ -124,7 +108,7 @@ if __name__ == "__main__":
                 )
 
                 response = client.models.generate_content(
-                    model="gemini-3.1-flash-lite-preview",
+                    model="gemini-1.5-flash-lite",
                     contents=prompt,
                 )
                 summary = response.text.strip().replace("\n", "<br>")
@@ -142,8 +126,8 @@ if __name__ == "__main__":
                 <guid isPermaLink="false">{vid}-{int(time.time())}</guid>
             </item>"""
 
-            # Delay to respect 15 RPM rate limit
-            time.sleep(4)
+            # Additional safety gap between API calls
+            time.sleep(3)
 
     rss_feed = f"""<?xml version="1.0" encoding="UTF-8" ?>
     <rss version="2.0">
