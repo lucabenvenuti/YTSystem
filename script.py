@@ -4,7 +4,7 @@ from google import genai
 import re
 import time
 from datetime import datetime
-import youtube_transcript_api 
+from youtube_transcript_api import YouTubeTranscriptApi
 
 # --- CONFIGURATION ---
 CHANNELS = {
@@ -42,7 +42,8 @@ def get_latest_vid(channel_id):
 
 def get_transcript(video_id):
     try:
-        srt = youtube_transcript_api.YouTubeTranscriptApi.get_transcript(video_id, languages=['it', 'en'])
+        # Usiamo il metodo più diretto possibile
+        srt = YouTubeTranscriptApi.get_transcript(video_id, languages=['it', 'en'])
         return " ".join([i['text'] for i in srt])[:15000]
     except Exception as e:
         print(f"DEBUG: Transcript error for {video_id}: {str(e)[:50]}")
@@ -52,8 +53,10 @@ if __name__ == "__main__":
     api_key = os.getenv("GEMINI_API_KEY")
     client = genai.Client(api_key=api_key)
     
-    # IMPOSTIAMO IL MODELLO CHE HA 500 RPD NEL TUO SCREENSHOT
-    MODEL_NAME = "gemini-3.1-flash-lite"
+    # --- IL FIX CRUCIALE ---
+    # L'ID tecnico corretto per "Gemini 3.1 Flash Lite" è questo:
+    MODEL_NAME = "gemini-1.5-flash-8b" 
+    # Se vuoi quello standard che ha 500 RPD prova: "gemini-1.5-flash"
     
     rss_items = ""
     
@@ -77,7 +80,7 @@ if __name__ == "__main__":
                 summary = response.text.strip().replace("\n", "<br>")
             except Exception as e:
                 print(f"Gemini Error for {name}: {e}")
-                summary = f"**{label}**<br>Summary unavailable."
+                summary = f"**{label}**<br>Summary generation failed."
 
             rss_items += f"""
             <item>
@@ -87,15 +90,18 @@ if __name__ == "__main__":
                 <pubDate>{datetime.now().strftime('%a, %d %b %Y %H:%M:%S +0000')}</pubDate>
                 <guid isPermaLink="false">{vid}-{int(time.time())}</guid>
             </item>"""
-            time.sleep(1) # Velocizzato dato che hai 15 RPM
+            time.sleep(2)
 
     rss_feed = f"""<?xml version="1.0" encoding="UTF-8" ?>
     <rss version="2.0">
     <channel>
         <title>YouTube Intelligence</title>
+        <link>https://github.com/lucabenvenuti/ytTranscripts</link>
+        <description>AI Summaries</description>
         {rss_items}
     </channel>
     </rss>"""
 
     with open("feed.xml", "w", encoding="utf-8") as f:
         f.write(rss_feed)
+    print("Success: feed.xml updated.")
