@@ -45,12 +45,25 @@ if __name__ == "__main__":
             print(f"Processing {name}...")
             
             try:
-                prompt = f"Summarize in 3 bullet points (Italian): {v_title}. Link: {url}"
+                # Prompt potenziato per riassunti più profondi
+                prompt = (
+                    f"Analizza approfonditamente il video YouTube intitolato: '{v_title}'.\n"
+                    f"URL del video: {url}\n\n"
+                    "Fornisci un riassunto dettagliato ed esaustivo in lingua italiana, strutturato in 5 punti chiave.\n"
+                    "Ogni punto deve essere descrittivo (almeno 2-3 frasi) e spiegare non solo 'cosa' succede, "
+                    "ma anche il 'perché' o il contesto dietro le informazioni fornite.\n"
+                    "Mantieni un tono informativo e coinvolgente."
+                )
+                
                 response = client.models.generate_content(
                     model=MODEL_NAME, 
                     contents=prompt
                 )
+                # Pulizia e formattazione per una lettura chiara in NetNewsWire
                 summary = response.text.strip().replace("\n", "<br>")
+                
+                # Rimuoviamo eventuali asterischi eccessivi se Gemini ne mette troppi
+                summary = summary.replace("  ", "&nbsp;&nbsp;")
             except Exception as e:
                 error_msg = str(e)
                 if "429" in error_msg:
