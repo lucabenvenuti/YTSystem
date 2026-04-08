@@ -14,7 +14,7 @@ def should_run():
     now = datetime.now(tz)
     current_time = now.strftime("%H:%M")
     # Windows for 6:00, 13:30, 19:30
-    targets = [("06:00", "06:40"), ("13:30", "14:10"), ("19:30", "20:10")]
+    targets = [("06:00", "06:40"), ("13:50", "14:30"), ("19:30", "20:10")]
     for start, end in targets:
         if start <= current_time <= end:
             return True, current_time
