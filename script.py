@@ -36,36 +36,34 @@ def get_latest_vid(channel_id):
         r = requests.get(url, timeout=10)
         vids = re.findall(r'<yt:videoId>(.*?)</yt:videoId>', r.text)
         titles = re.findall(r'<title>(.*?)</title>', r.text)
+        # titles[0] è il titolo del canale, titles[1] è il titolo del video
         return (vids[0], titles[1]) if vids else (None, None)
-    except:
+    except Exception as e:
+        print(f"Error fetching feed for {channel_id}: {e}")
         return (None, None)
 
 def get_transcript(video_id):
     try:
-        # CORREZIONE: Si usa YouTubeTranscriptApi.list_transcripts(video_id) 
-        # direttamente o si istanzia correttamente. 
-        # Il modo più sicuro e moderno è questo:
-        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
-        
-        try:
-            # Prova a cercare sottotitoli manuali o generati in IT o EN
-            transcript = transcript_list.find_transcript(['it', 'en'])
-        except:
-            # Se non li trova, prova a prenderne uno qualsiasi e tradurlo
-            transcript = transcript_list.find_generated_transcript(['it', 'en'])
-            
-        srt = transcript.fetch()
-        print(f"DEBUG: Transcript found for {video_id} ({transcript.language})")
-        return " ".join([i['text'] for i in srt])[:15000]
-        
+        # Metodo standard universale
+        srt = YouTubeTranscriptApi.get_transcript(video_id, languages=['it', 'en'])
+        full_text = " ".join([i['text'] for i in srt])
+        print(f"DEBUG: Transcript found for {video_id}")
+        return full_text[:15000]
     except Exception as e:
-        print(f"DEBUG: Transcript FAILED for {video_id}. Error: {str(e)}")
+        print(f"DEBUG: Transcript NOT AVAILABLE for {video_id}. Error: {str(e)[:50]}")
         return None
 
 if __name__ == "__main__":
-    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+    # Inizializza client Gemini
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        print("Error: GEMINI_API_KEY not found.")
+        exit(1)
+        
+    client = genai.Client(api_key=api_key)
     rss_items = ""
-    MODEL_NAME = "gemini-3.1-flash-lite-preview"
+    # Modello ottimizzato per velocità e costi
+    MODEL_NAME = "gemini-2.0-flash-lite-preview-02-05"
     
     for name, cid in CHANNELS.items():
         vid, v_title = get_latest_vid(cid)
@@ -73,33 +71,36 @@ if __name__ == "__main__":
             url = f"https://www.youtube.com/watch?v={vid}"
             print(f"Processing {name}...")
             
+            # Tenta il recupero del transcript
             transcript_text = get_transcript(vid)
-            # Etichetta basata sulla disponibilità del transcript
             label = "TRANSCRIPT" if transcript_text else "TITLE-ONLY"
             
             try:
                 if transcript_text:
-                    source_material = f"TRANSCRIPT: {transcript_text}"
+                    source_material = f"TRANSCRIPT CONTENT: {transcript_text}"
                 else:
-                    source_material = f"TITLE: {v_title}"
+                    source_material = f"VIDEO TITLE: {v_title} (No transcript available)"
 
                 prompt = (
-                    f"Analyze the following content from a YouTube video titled '{v_title}'.\n"
-                    f"Source: {source_material}\n\n"
-                    "Instructions:\n"
-                    f"1. START: Begin the summary with the exact word '{label}' in bold.\n"
-                    "2. LANGUAGE: If the content is in Italian, summarize in Italian. If English, summarize in English. Otherwise, use English.\n"
-                    "3. STRUCTURE: 5 detailed key points.\n"
-                    "4. DEPTH: 2-3 sentences per point explaining the 'what' and 'why'.\n"
-                    "5. TONE: Informative and engaging."
+                    f"Analyze the following content from the YouTube video: '{v_title}'.\n"
+                    f"Source Data: {source_material}\n\n"
+                    "Task:\n"
+                    f"1. Start your response with the word '**{label}**' on the first line.\n"
+                    "2. Language: If the video content/title is in Italian, write the summary in Italian. "
+                    "If it is in English, write in English. Otherwise, use English.\n"
+                    "3. Structure: Provide a detailed summary in 5 key points.\n"
+                    "4. Depth: Each point must be 2-3 sentences long, explaining the 'what' and the 'why'.\n"
+                    "5. Tone: Professional and informative."
                 )
                 
                 response = client.models.generate_content(model=MODEL_NAME, contents=prompt)
                 summary = response.text.strip().replace("\n", "<br>")
+                
             except Exception as e:
-                print(f"Error for {name}: {e}")
-                summary = f"**{label}**<br>Summary skipped due to error."
+                print(f"Gemini Error for {name}: {e}")
+                summary = f"**{label}**<br>Summary failed due to AI provider limits or error."
             
+            # Costruzione item RSS con GUID dinamico per forzare refresh in NetNewsWire
             rss_items += f"""
             <item>
                 <title>{name}: {v_title}</title>
@@ -109,18 +110,21 @@ if __name__ == "__main__":
                 <guid isPermaLink="false">{vid}-{int(time.time())}</guid>
             </item>"""
             
-            time.sleep(5)
+            # Piccolo delay per non saturare le API
+            time.sleep(2)
 
+    # Creazione file XML finale
     rss_feed = f"""<?xml version="1.0" encoding="UTF-8" ?>
     <rss version="2.0">
     <channel>
         <title>YouTube Intelligence</title>
         <link>https://github.com/lucabenvenuti/ytTranscripts</link>
-        <description>AI Summaries with Transcripts</description>
+        <description>AI Summaries (Transcripts + Titles)</description>
         {rss_items}
     </channel>
     </rss>"""
 
     with open("feed.xml", "w", encoding="utf-8") as f:
         f.write(rss_feed)
-    print("Success: Feed updated with labels.")
+    
+    print("Success: feed.xml updated.")
