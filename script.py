@@ -1,6 +1,6 @@
 import os
 import requests
-import google.generativeai as genai
+import google.genai as genai
 import re
 import time
 from datetime import datetime
@@ -42,35 +42,31 @@ def get_latest_vid(channel_id):
 
 def get_transcript(video_id):
     try:
-        # Chiamata corretta per evitare l'errore "type object"
-        srt = YouTubeTranscriptApi.get_transcript(video_id, languages=['it', 'en'])
-        return " ".join([i['text'] for i in srt])[:15000]
+        ytt = YouTubeTranscriptApi()
+        fetched = ytt.fetch(video_id, languages=['it', 'en'])
+        return " ".join([snippet.text for snippet in fetched])[:15000]
     except Exception as e:
-        print(f"DEBUG: Transcript not available for {video_id}: {str(e)[:50]}")
+        print(f"DEBUG: Transcript not available for {video_id}: {str(e)[:80]}")
         return None
 
 if __name__ == "__main__":
-    # Inizializzazione API
     api_key = os.getenv("GEMINI_API_KEY")
-    genai.configure(api_key=api_key)
-    
-    # MODELLO: gemini-1.5-flash-8b (Il 'Flash Lite' con 500 RPD)
-    model = genai.GenerativeModel('gemini-1.5-flash-8b')
-    
+    client = genai.Client(api_key=api_key)
+
     rss_items = ""
-    
+
     for name, cid in CHANNELS.items():
         vid, v_title = get_latest_vid(cid)
         if vid:
             url = f"https://www.youtube.com/watch?v={vid}"
             print(f"Processing {name}...")
-            
+
             transcript_text = get_transcript(vid)
             label = "TRANSCRIPT" if transcript_text else "TITLE-ONLY"
-            
+
             try:
                 source = f"Transcript: {transcript_text}" if transcript_text else f"Title: {v_title}"
-                
+
                 prompt = (
                     f"Start the summary with the word **{label}**.\n\n"
                     f"Analyze the following video content: '{v_title}'\n"
@@ -81,11 +77,13 @@ if __name__ == "__main__":
                     "If it is in English, write in English.\n"
                     "3. Each point should be clear and informative."
                 )
-                
-                response = model.generate_content(prompt)
-                # Sostituiamo i newline con <br> per il lettore RSS
+
+                response = client.models.generate_content(
+                    model="gemini-1.5-flash-8b",
+                    contents=prompt,
+                )
                 summary = response.text.strip().replace("\n", "<br>")
-                
+
             except Exception as e:
                 print(f"Gemini Error for {name}: {e}")
                 summary = f"**{label}**<br>Could not generate summary."
@@ -98,11 +96,10 @@ if __name__ == "__main__":
                 <pubDate>{datetime.now().strftime('%a, %d %b %Y %H:%M:%S +0000')}</pubDate>
                 <guid isPermaLink="false">{vid}-{int(time.time())}</guid>
             </item>"""
-            
-            # Delay per rispettare i 15 RPM (Richieste al Minuto)
+
+            # Delay to respect 15 RPM rate limit
             time.sleep(4)
 
-    # Generazione file XML
     rss_feed = f"""<?xml version="1.0" encoding="UTF-8" ?>
     <rss version="2.0">
     <channel>
@@ -115,5 +112,5 @@ if __name__ == "__main__":
 
     with open("feed.xml", "w", encoding="utf-8") as f:
         f.write(rss_feed)
-    
+
     print("Success: feed.xml updated.")
