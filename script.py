@@ -34,10 +34,29 @@ def get_latest_vid(channel_id):
 
 def get_transcript(video_id):
     try:
-        # Tenta di recuperare i sottotitoli in italiano o inglese
-        srt = YouTubeTranscriptApi.get_transcript(video_id, languages=['it', 'en'])
+        # Recupera la lista dei sottotitoli
+        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+        
+        # Prova a prendere quello che trova in ordine di preferenza
+        # it manuale -> en manuale -> it generato -> en generato
+        try:
+            transcript = transcript_list.find_transcript(['it', 'en'])
+        except:
+            try:
+                # Cerca quelli generati automaticamente
+                transcript = transcript_list.find_generated_transcript(['it', 'en'])
+            except:
+                # Se non trova it/en, prendi il primo disponibile e traducilo in inglese
+                first_transcript = next(iter(transcript_list))
+                transcript = first_transcript.translate('en')
+            
+        srt = transcript.fetch()
+        print(f"DEBUG: Transcript found for {video_id} ({transcript.language})")
         return " ".join([i['text'] for i in srt])[:15000]
-    except Exception:
+        
+    except Exception as e:
+        # Questo scriverà l'errore nei log di GitHub Actions
+        print(f"DEBUG: Transcript FAILED for {video_id}. Error: {str(e)[:100]}")
         return None
 
 if __name__ == "__main__":
