@@ -39,43 +39,44 @@ def get_latest_vid(channel_id):
         titles = re.findall(r'<title>(.*?)</title>', r.text)
         return (vids[0], titles[1]) if vids else (None, None)
     except Exception as e:
-        print(f"RSS Fetch Error for {channel_id}: {e}")
+        print(f"DEBUG: RSS Fetch failed for {channel_id}: {e}")
         return (None, None)
 
 def get_transcript(video_id):
-    try:
-        # --- HUMAN JITTER DELAY ---
-        # Random delay to avoid 429 "Too Many Requests"
-        delay = random.uniform(8, 18)
-        print(f"DEBUG: Waiting {delay:.2f}s for {video_id}...")
-        time.sleep(delay)
+    # 1. DEBUG: Verify Secret Loading
+    cookies_content = os.getenv("YOUTUBE_COOKIES")
+    if not cookies_content:
+        print("CRITICAL: YOUTUBE_COOKIES Secret is MISSING from Env!")
+        return None
+    
+    with open("cookies.txt", "w") as f:
+        f.write(cookies_content)
+    
+    c_size = os.path.getsize("cookies.txt")
+    print(f"DEBUG: Cookies.txt size: {c_size} bytes")
 
-        cookies_path = os.getenv("YOUTUBE_COOKIES_FILE", "cookies.txt")
+    try:
+        # 2. HUMAN JITTER
+        delay = random.uniform(12, 22)
+        print(f"DEBUG: Waiting {delay:.1f}s for {video_id}...")
+        time.sleep(delay)
         
-        # 1. Fetch transcript list
-        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id, cookies=cookies_path)
+        # 3. ATTEMPT FETCH
+        tl = YouTubeTranscriptApi.list_transcripts(video_id, cookies="cookies.txt")
         
         try:
-            # 2. Try Manual (IT or EN)
-            transcript = transcript_list.find_transcript(['it', 'en'])
-            print(f"DEBUG: [{video_id}] Found manual transcript ({transcript.language_code})")
+            t = tl.find_transcript(['it', 'en'])
+            print(f"SUCCESS: Found MANUAL transcript for {video_id}")
         except:
-            # 3. Fallback to Auto-generated (IT or EN)
-            transcript = transcript_list.find_generated_transcript(['it', 'en'])
-            print(f"DEBUG: [{video_id}] Found auto-generated transcript ({transcript.language_code})")
+            t = tl.find_generated_transcript(['it', 'en'])
+            print(f"SUCCESS: Found AUTO transcript for {video_id}")
 
-        fetched = transcript.fetch()
-        return " ".join([snippet['text'] for snippet in fetched])[:15000]
+        full_text = " ".join([snippet['text'] for snippet in t.fetch()])
+        print(f"DEBUG: Captured {len(full_text)} characters.")
+        return full_text[:15000]
 
     except Exception as e:
-        error_msg = str(e)
-        print(f"DEBUG: Failed {video_id} - {type(e).__name__}")
-        
-        # If rate limited, we wait even longer for the next attempt
-        if "429" in error_msg or "Too Many Requests" in error_msg:
-            print("CRITICAL: Rate limit hit. Cooling down for 45s...")
-            time.sleep(45)
-            
+        print(f"FAIL: YouTube Block for {video_id}. Error: {type(e).__name__}")
         return None
 
 if __name__ == "__main__":
@@ -88,34 +89,34 @@ if __name__ == "__main__":
         vid, v_title = get_latest_vid(cid)
         if vid:
             url = f"https://www.youtube.com/watch?v={vid}"
-            print(f"Processing {name}: {v_title}")
+            print(f"\n--- Processing: {name} ---")
 
             transcript_text = get_transcript(vid)
             label = "TRANSCRIPT" if transcript_text else "TITLE-ONLY"
 
             try:
                 source = f"Transcript: {transcript_text}" if transcript_text else f"Title: {v_title}"
-
-                prompt = (
-                    f"Start the summary with the word **{label}**.\n\n"
-                    f"Analyze the following video content: '{v_title}'\n"
-                    f"Source: {source}\n\n"
-                    "Instructions:\n"
-                    "1. Provide a detailed summary in 5 key points.\n"
-                    "2. If the source material is in Italian, write the summary in Italian. "
-                    "If it is in English, write in English.\n"
-                    "3. Each point should be clear and informative."
-                )
-
+                
+                # --- GEMINI 3.1 FLASH-LITE PREVIEW ---
                 response = client.models.generate_content(
-                    model="gemini-3.1-flash-lite-preview",
-                    contents=prompt,
+                    model="gemini-3.1-flash-lite-preview", 
+                    contents=(
+                        f"Start with **{label}**.\n\n"
+                        f"Video: '{v_title}'\n"
+                        f"Content: {source}\n\n"
+                        "Task: Summarize in 5 bullet points. Match the language of the content."
+                    )
                 )
-                summary = response.text.strip().replace("\n", "<br>")
+                
+                if response.text:
+                    print(f"DEBUG: Gemini successfully generated summary.")
+                    summary = response.text.strip().replace("\n", "<br>")
+                else:
+                    summary = f"**{label}**<br>Gemini returned no text."
 
             except Exception as e:
-                print(f"Gemini Error for {name}: {e}")
-                summary = f"**{label}**<br>Could not generate summary."
+                print(f"GEMINI ERROR for {name}: {e}")
+                summary = f"**{label}**<br>Summary failed: {type(e).__name__}"
 
             rss_items += f"""
             <item>
@@ -125,9 +126,8 @@ if __name__ == "__main__":
                 <pubDate>{datetime.now().strftime('%a, %d %b %Y %H:%M:%S +0000')}</pubDate>
                 <guid isPermaLink="false">{vid}-{int(time.time())}</guid>
             </item>"""
-
-            # Additional safety gap between API calls
-            time.sleep(3)
+            
+            time.sleep(5)
 
     rss_feed = f"""<?xml version="1.0" encoding="UTF-8" ?>
     <rss version="2.0">
@@ -142,4 +142,4 @@ if __name__ == "__main__":
     with open("feed.xml", "w", encoding="utf-8") as f:
         f.write(rss_feed)
 
-    print("Success: feed.xml updated.")
+    print("\nFINISH: feed.xml updated.")
