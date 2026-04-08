@@ -20,7 +20,7 @@ jobs:
       - name: Install Dependencies
         run: |
           pip install --upgrade pip
-          pip install requests google-genai youtube-transcript-api --upgrade
+          pip install --force-reinstall youtube-transcript-api==0.6.3 requests google-genai
 
       - name: Write cookies file
         run: |
