@@ -42,44 +42,52 @@ def get_latest_vid(channel_id):
 
 def get_transcript(video_id):
     try:
-        # --- MAXIMUM DIAGNOSTIC DEBUGS ---
+        # --- DIAGNOSTIC DEBUGS ---
         import youtube_transcript_api
-        import os
         from youtube_transcript_api import YouTubeTranscriptApi
+        import os
         
-        # Check Version & Location
-        v = getattr(youtube_transcript_api, '__version__', 'unknown')
-        p = getattr(youtube_transcript_api, '__file__', 'unknown')
-        print(f"DEBUG: Library Version: {v}")
-        print(f"DEBUG: Library Path: {p}")
-        
-        # Check Cookies File Existence and Size
         cookies_path = os.getenv("YOUTUBE_COOKIES_FILE", "cookies.txt")
-        if os.path.exists(cookies_path):
-            size = os.path.getsize(cookies_path)
-            print(f"DEBUG: Cookie file found at {cookies_path} (Size: {size} bytes)")
-        else:
-            print(f"DEBUG: CRITICAL - Cookie file NOT found at {cookies_path}")
-        
-        # Check if the class actually has the method we want
-        if hasattr(YouTubeTranscriptApi, 'get_transcript'):
-            print("DEBUG: Method 'get_transcript' exists in YouTubeTranscriptApi")
-        else:
-            print("DEBUG: CRITICAL - Method 'get_transcript' MISSING from YouTubeTranscriptApi")
-        # ---------------------------------
+        print(f"DEBUG: Starting fetch for {video_id}")
+        # -------------------------
 
-        # The actual attempt
-        fetched = YouTubeTranscriptApi.get_transcript(
-            video_id, 
-            languages=['it', 'en'], 
-            cookies=cookies_path
-        )
-        
-        return " ".join([snippet['text'] for snippet in fetched])[:15000]
+        # Method 1: The direct call (What you want)
+        try:
+            print(f"DEBUG: Attempting direct fetch (it, en)...")
+            fetched = YouTubeTranscriptApi.get_transcript(
+                video_id, 
+                languages=['it', 'en'], 
+                cookies=cookies_path
+            )
+            return " ".join([snippet['text'] for snippet in fetched])[:15000]
+
+        except Exception as inner_e:
+            print(f"DEBUG: Direct fetch failed. Error: {type(inner_e).__name__}")
+            print(f"DEBUG: Inspecting all available transcripts to see if 'TranscriptsDisabled' is real...")
+            
+            # Method 2: Inspection to see what IS there
+            transcript_list = YouTubeTranscriptApi.list_transcripts(video_id, cookies=cookies_path)
+            
+            # Log available languages to see if YouTube is hiding them
+            available_manual = [t.language_code for t in transcript_list._manually_created_transcripts.values()]
+            available_generated = [t.language_code for t in transcript_list._generated_transcripts.values()]
+            
+            print(f"DEBUG: Manual languages found: {available_manual}")
+            print(f"DEBUG: Auto languages found: {available_generated}")
+
+            # Try to grab literally anything that exists
+            all_codes = available_manual + available_generated
+            if all_codes:
+                transcript = transcript_list.find_transcript([all_codes[0]])
+                fetched = transcript.fetch()
+                print(f"DEBUG: Recovery successful using: {transcript.language_code}")
+                return " ".join([snippet['text'] for snippet in fetched])[:15000]
+            else:
+                print("DEBUG: YouTube returned ZERO transcripts for this video.")
+                return None
 
     except Exception as e:
-        # This will catch RequestBlocked, NoTranscriptFound, or any weird errors
-        print(f"DEBUG Error for {video_id}: {type(e).__name__} - {str(e)}")
+        print(f"DEBUG Final Error for {video_id}: {type(e).__name__} - {str(e)}")
         return None
 
 if __name__ == "__main__":
