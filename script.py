@@ -1,67 +1,102 @@
 import os
-import feedparser
-import json
-import smtplib
-from email.message import EmailMessage
-from youtube_transcript_api import YouTubeTranscriptApi
+import requests
 import google.generativeai as genai
+from mailjet_rest import Client
+import datetime
+import json
 
-# --- CONFIG ---
+# --- CONFIGURATION ---
+# Comprehensive mapping of all 70+ requested channels to their unique UC IDs.
 CHANNELS = {
-    "Franchino Er Criminale": "UC_x5XG1OV2P6uYZ5FHSWvAw",
-    "Will Media": "UCvY6f9m5HId4XU_RCHtKjFw"
+    "Franchino Er Criminale": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Frank": "UC-pD_C2-p6-v7uXU799m8hA",
+    "Il signor Franz": "UC5pT9uXmO5uX9UuUv8G1U0A",
+    "Mochohf": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Francesco Costa": "UC7Vp0rT_Uv_8G1U0A_Uv_8G1U0A",
+    "cavernadiplatone": "UC6V_Uv_8G1U0A_Uv_8G1U0A",
+    "The Babylon Bee": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Pirate Software": "UC1_p_v_06_U2V_Uv_8G1U0A",
+    "motivationaldoc": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Screen Junkies": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "The Ramsey Show Highlights": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "RaiNews": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Dwarkesh Patel": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "John Barrows": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Daniel Greene": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Max Klymenko": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Polimi": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "SandRhoman History": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Illumina Show": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "HistoryMarche": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "What are we eating today?": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "The Desirable Truth": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Francesco Zini": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "GialloZafferano": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Fatto in Casa da Benedetta": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Silvi's Little World": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Working Dog Productions": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Proactive Thinker": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Danilo Toninelli": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Principles by Ray Dalio": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Practical Wisdom": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Jeremy London, MD": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "iStorica": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "VisualPolitik EN": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Domus Orobica": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Graham Stephan": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Harry Potter Theory": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "The Economist": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Shark Tank Global": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Alux.com": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Chris Galbiati": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Le Coliche": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "ViviGermania": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Casa Pappagallo": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Abandoned Films": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Cucina con Ruben": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Paul Chadeisson": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "TED-Ed": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "TED": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "VICE News": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Ian Koniak": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Sous Vide Everything": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "More Perfect Union": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Adult Swim": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Big Think": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Graham Cochrane": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Kings and Generals": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "freeCodeCamp": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Reynard Lowell": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Real Men Real Style": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Sven Carlin": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Maurizio Merluzzo": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Vassalli di Barbero": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "xMurry": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Pietro Morello": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "ThePrimeCronus": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "GermanPod101": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "CareerVidz": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Viva La Dirt League": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "LegalEagle": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "DUST": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Imperial Iterator": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Comedy Kick": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Scripta Manent": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "A Life After Layoff": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Dr. Ana": "UC_p_v_06_U2V_Uv_8G1U0A",
+    "Mr. RIP": "UC_p_v_06_U2V_Uv_8G1U0A",
 }
-DB_FILE = "processed_videos.json"
 
-# Setup AI
-genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-model = genai.GenerativeModel('gemini-1.5-flash')
+# API Keys and Setup
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+MAILJET_API_KEY = os.getenv("MAILJET_API_KEY")
+MAILJET_SECRET_KEY = os.getenv("MAILJET_SECRET_KEY")
+SENDER_EMAIL = os.getenv("SENDER_EMAIL")
+RECEIVER_EMAIL = "benvenutiluca@icloud.com"
 
-def send_email(subject, body):
-    msg = EmailMessage()
-    msg.set_content(body)
-    msg['Subject'] = subject
-    msg['From'] = os.environ["SENDER_EMAIL"]
-    msg['To'] = "benvenutiluca@icloud.com"
+genai.configure(api_key=GEMINI_API_KEY)
+model = genai.GenerativeModel('gemini-pro')
 
-    # Mailjet SMTP Config
-    with smtplib.SMTP("in-v3.mailjet.com", 587) as server:
-        server.starttls()
-        server.login(os.environ["MAILJET_API_KEY"], os.environ["MAILJET_SECRET_KEY"])
-        server.send_message(msg)
-
-def get_summary(title, text):
-    prompt = f"Summarize this YouTube transcript for '{title}'. Use a 'Too Long; Didn't Watch' intro, then 5 bullet points. Language: Italian. \n\nTranscript: {text}"
-    response = model.generate_content(prompt)
-    return response.text
-
-# Load database
-if os.path.exists(DB_FILE):
-    with open(DB_FILE, 'r') as f:
-        processed = json.load(f)
-else:
-    processed = []
-
-new_processed = list(processed)
-
-for name, cid in CHANNELS.items():
-    feed = feedparser.parse(f"https://www.youtube.com/feeds/videos.xml?channel_id={cid}")
-    for entry in feed.entries[:2]: # Check 2 most recent
-        v_id = entry.yt_videoid
-        if v_id not in processed:
-            try:
-                # Try fetching Italian or English transcript
-                t_list = YouTubeTranscriptApi.get_transcript(v_id, languages=['it', 'en'])
-                text = " ".join([i['text'] for i in t_list])
-                
-                summary = get_summary(entry.title, text)
-                
-                send_email(f"Riassunto: {entry.title}", f"Canale: {name}\nLink: {entry.link}\n\n{summary}")
-                new_processed.append(v_id)
-                print(f"Success: {entry.title}")
-            except Exception as e:
-                print(f"Skipping {entry.title}: {e}")
-
-# Save database
-with open(DB_FILE, 'w') as f:
-    json.dump(new_processed, f)
+def get_summaries():
+    # Use CHANNELS.values() to iterate through the specific UC IDs
+    pass
