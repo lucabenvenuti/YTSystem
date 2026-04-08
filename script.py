@@ -32,9 +32,7 @@ def get_latest_vid(channel_id):
         return (None, None)
 
 if __name__ == "__main__":
-    # Setup New Gemini Client
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-    
     rss_items = ""
     
     for name, cid in CHANNELS.items():
@@ -43,36 +41,34 @@ if __name__ == "__main__":
             url = f"https://www.youtube.com/watch?v={vid}"
             print(f"Processing: {name}...")
             
-            try:
-                # Using the new gemini-2.0-flash model
-                prompt = (
-                    f"Summarize this YouTube video in 3 short bullet points in Italian.\n"
-                    f"Channel: {name}\n"
-                    f"Title: {v_title}\n"
-                    f"Link: {url}"
-                )
-                
-                response = client.models.generate_content(
-                    model="gemini-2.0-flash", 
-                    contents=prompt
-                )
-                summary = response.text.strip().replace("\n", "<br>")
-                
-            except Exception as e:
-                print(f"Error for {name}: {e}")
-                summary = f"Summary failed. <a href='{url}'>Watch video here</a>"
+            summary = ""
+            # --- RETRY LOGIC (Attempts up to 3 times) ---
+            for attempt in range(3):
+                try:
+                    prompt = f"Summarize this YouTube video in 3 short bullet points in Italian. Title: {v_title} URL: {url}"
+                    response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
+                    summary = response.text.strip().replace("\n", "<br>")
+                    break # Success! Exit the retry loop
+                except Exception as e:
+                    if "429" in str(e):
+                        print(f"Quota hit for {name}. Waiting 30s to retry...")
+                        time.sleep(30) # Wait longer if we hit the limit
+                    else:
+                        print(f"Error for {name}: {e}")
+                        summary = "Summary temporarily unavailable."
+                        break
             
             rss_items += f"""
             <item>
                 <title>{name}: {v_title}</title>
                 <link>{url}</link>
-                <description>{summary}</description>
+                <description>{summary or 'Summary failed after retries.'}</description>
                 <pubDate>{datetime.now().strftime('%a, %d %b %Y %H:%M:%S +0000')}</pubDate>
                 <guid isPermaLink="false">{vid}</guid>
             </item>"""
             
-            # Pause to respect rate limits
-            time.sleep(4)
+            # Pause 10 seconds between every channel to stay under the RPM limit
+            time.sleep(10)
 
     rss_feed = f"""<?xml version="1.0" encoding="UTF-8" ?>
     <rss version="2.0">
@@ -86,4 +82,4 @@ if __name__ == "__main__":
 
     with open("feed.xml", "w", encoding="utf-8") as f:
         f.write(rss_feed)
-    print("Success: feed.xml updated with Gemini 2.0")
+    print("Success: feed.xml updated.")
