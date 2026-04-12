@@ -1,0 +1,105 @@
+channels:
+  - name: "Franchino Er Criminale"
+    id: "UCcmf5mgpn84eiCPHlm0HRlA"
+    language: "italian"
+    enabled: true
+
+  - name: "Will Media"
+    id: "UCZM5aON36Iw0o0ngTaQSWVA"
+    language: "italian"
+    enabled: true
+
+  - name: "Pratt"
+    id: "UC9pjLoZGrwLu9KqKw9znE1A"
+    language: "italian"
+    enabled: true
+
+  - name: "SandRhoman History"
+    id: "UC7pr_dQxm2Ns2KlzRSx5FZA"
+    language: "english"
+    enabled: true
+
+  - name: "Illumina Show"
+    id: "UCYhJxmRknd1gLZa1dxjm4Hw"
+    language: "italian"
+    enabled: true
+
+  - name: "HistoryMarche"
+    id: "UC8MX9ECowgDMTOnFTE8EUJw"
+    language: "english"
+    enabled: true
+
+  - name: "What are we eating today?"
+    id: "UCuApobilcYeWdlbhdp746RA"
+    language: "italian"
+    enabled: true
+
+  - name: "Kings and Generals"
+    id: "UCMmaBzfCCwZ2KqaBJjkj0fw"
+    language: "english"
+    enabled: true
+
+  - name: "Chris Galbiati"
+    id: "UClvlYh79P6GKOzgfgISrBHg"
+    language: "italian"
+    enabled: true
+
+  - name: "Francesco Zini"
+    id: "UCiGp4I5ehgrCF8cKlXvvX2w"
+    language: "italian"
+    enabled: true
+
+  - name: "Frank Vlog"
+    id: "UC9w_-HRrQwkyWlbI2mTedxQ"
+    language: "italian"
+    enabled: true
+
+  - name: "Giulia Crossbow"
+    id: "UCLYbP4QpYiwcnIqm_cgAtJg"
+    language: "italian"
+    enabled: true
+
+  - name: "Wizards and Warriors"
+    id: "UCwqY9GjXBdSYeUZiinbFXyQ"
+    language: "english"
+    enabled: true
+
+  - name: "Mocho"
+    id: "UC1Qm-YEYyAAQYXgI_vsIqCw"
+    language: "italian"
+    enabled: true
+
+  - name: "Dami Lee"
+    id: "UCJ_2hNMxOzNjviJBiLWHMqg"
+    language: "english"
+    enabled: true
+
+  - name: "Economics Explained"
+    id: "UCZ4AMrDcNrfy3X6nsU8-rPg"
+    language: "english"
+    enabled: true
+
+  - name: "How Money Works"
+    id: "UCkCGANrihzExmu9QiqZpPlQ"
+    language: "english"
+    enabled: true
+
+  - name: "Iron Snail"
+    id: "UC-0kjvCj9Z_pL_yH648Uq7w"
+    language: "english"
+    enabled: true
+
+  - name: "Signor Franz"
+    id: "UCLpGbBGYr9yCGbSwDEFvrMQ"
+    language: "italian"
+    enabled: true
+
+  - name: "Francesco Costa"
+    id: "UCWIkgZzXznmBgU9uQsvjZAQ"
+    language: "italian"
+    enabled: true
+
+  - name: "Lost le Blanc"
+    id: "UCt_NLJ4McJlCyYM-dSPRo7Q"
+    language: "english"
+    enabled: true

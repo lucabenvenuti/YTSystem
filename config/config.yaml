@@ -1,0 +1,120 @@
+app:
+  timezone: Europe/Berlin
+  root_dir: C:\YTSystem
+
+transcript_collector:
+  enabled: true
+  app_name: yt_transcript_collector
+  start_time: "01:30"
+  end_time: "03:30"
+  no_new_work_after: "03:20"
+  discovery_max_age_days: 7
+  min_transcript_length_chars: 200
+  keep_audio_cache: true
+  plot_on_incomplete: true
+  report_json: true
+  request_pause_min_seconds: 4.0
+  request_pause_max_seconds: 8.0
+
+summary_pdf_generator:
+  enabled: true
+  app_name: yt_summary_pdf_generator
+
+  start_time: "03:35"
+  end_time: "04:35"
+  no_new_work_after: "04:25"
+
+  summary_phase_minutes: 50
+  total_run_minutes: 60
+  deadline_safety_seconds: 20
+
+  publish_partial_pdf: true
+  plot_on_incomplete: true
+  report_json: true
+
+paths:
+  db_path: C:\YTSystem\db\yt_pipeline.db
+  schema_path: C:\YTSystem\db\schema.sql
+  transcripts_dir: C:\YTSystem\data\transcripts
+  summaries_dir: C:\YTSystem\data\summaries
+  audio_cache_dir: C:\YTSystem\data\audio_cache
+  collector_reports_dir: C:\YTSystem\data\reports\collector
+  summary_reports_dir: C:\YTSystem\data\reports\summary
+  collector_plots_dir: C:\YTSystem\data\plots\collector
+  summary_plots_dir: C:\YTSystem\data\plots\summary
+  pdf_dir: C:\YTSystem\data\pdf
+  collector_logs_dir: C:\YTSystem\data\logs\collector
+  summary_logs_dir: C:\YTSystem\data\logs\summary
+  temp_dir: C:\YTSystem\temp
+  collector_lock: C:\YTSystem\temp\collector.lock
+  summary_lock: C:\YTSystem\temp\summary.lock
+
+yt:
+  rss_max_items: 2
+  cookies_path: C:\YTSystem\config\cookies.txt
+  use_cookies_if_present: true
+  user_agent: Mozilla/5.0
+  referer: https://www.youtube.com/
+  subtitle_language_priority:
+    - it
+    - en
+  allow_any_subtitle_fallback: true
+  max_429_retries: 3
+  post_429_cooldown_seconds: 30.0
+  base_interval_seconds: 4.0
+  max_interval_seconds: 240.0
+  success_decay: 0.90
+  min_penalty_seconds: 0.0
+  penalty_step_seconds: 15.0
+  max_penalty_seconds: 360.0
+  multiplier_on_429: 2.0
+  max_multiplier: 12.0
+  jitter_ratio: 0.25
+  recovery_success_threshold: 4
+
+  light_request_weight: 1.0
+  heavy_request_weight: 3.0
+
+transcription:
+  provider: ffmpeg_whisper
+  whisper_cli_path: C:\Tools\whisper\whisper-cli.exe
+  whisper_model_path: C:\Tools\whisper\models\ggml-base.bin
+  ffmpeg_path: C:\Tools\ffmpeg\bin\ffmpeg.exe
+
+summarization:
+  provider: gemini
+  base_url: https://generativelanguage.googleapis.com/v1beta
+  model_name: gemini-3.1-flash-lite-preview
+  api_key_env_var: GEMINI_API_KEY
+  api_key: ""
+
+  request_timeout_seconds: 0
+  prompt_version: v3
+
+  temperature: 0.1
+  max_output_tokens: 3072
+
+  max_chunk_chars: 28000
+  overlap_chars: 400
+  max_chunks_per_transcript: 5
+  combine_batch_size: 10
+  retries_per_call: 1
+
+  requests_per_minute_limit: 14
+  min_request_interval_seconds: 4.2
+
+pdf:
+  local_output_dir: C:\YTSystem\data\pdf
+  filename_format: "%Y-%m-%d-%H-%M"
+  document_title: "YT Daily Summaries"
+  include_cover_page: true
+  include_toc: false
+
+distribution:
+  copy_enabled: true
+  destination_share: "\\\\muc-data.eas.local\\Public\\LB"
+  verify_after_copy: true
+
+logging:
+  level: INFO
+  rotate_daily: true

@@ -1,0 +1,105 @@
+# ========================
+# SYSTEM / OS
+# ========================
+.DS_Store
+Thumbs.db
+
+# ========================
+# PYTHON
+# ========================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# ========================
+# ENV
+# ========================
+.env
+.env.*
+
+# ========================
+# DATABASE (reset deletes it)
+# ========================
+db/yt_pipeline.db
+
+# ========================
+# DATA - FULLY RESETTABLE
+# ========================
+
+# Transcripts
+data/transcripts/
+
+# Summaries
+data/summaries/
+
+# Audio cache
+data/audio_cache/
+
+# PDFs
+data/pdf/
+
+# Reports
+data/reports/collector/
+data/reports/summary/
+
+# Plots
+data/plots/collector/
+data/plots/summary/
+
+# Logs
+data/logs/collector/
+data/logs/summary/
+
+# Temp
+temp/
+data/temp/
+
+# ========================
+# GENERATED FILE TYPES
+# ========================
+*.srt
+*.vtt
+*.txt
+*.pdf
+*.png
+*.jpg
+*.jpeg
+
+# ========================
+# MEDIA FILES (downloaded)
+# ========================
+*.mp4
+*.mkv
+*.webm
+*.wav
+*.mp3
+
+# ========================
+# LOG FILES
+# ========================
+*.log
+
+# ========================
+# EXTERNAL TOOLS
+# ========================
+C:/Tools/
+Tools/
+
+# ========================
+# IDE
+# ========================
+.vscode/
+.idea/
+
+# ========================
+# ARCHIVES
+# ========================
+*.zip
+*.7z
+*.rar
+
+# ========================
+# CACHE
+# ========================
+.cache/
