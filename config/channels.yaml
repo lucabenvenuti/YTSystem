@@ -118,3 +118,13 @@ channels:
     id: "UCeUJFQ0D9qs6aVNyUt9fkeQ"
     language: "english"
     enabled: true
+  
+  - name: "ReynardLowell"
+    id: "UC7dR3zb454qbmuzTR2_ABhQ"
+    language: "english"
+    enabled: true
+
+  - name: "NickLewis"
+    id: "UCnjhet_jt-oijILXoOzCZjg"
+    language: "english"
+    enabled: true
