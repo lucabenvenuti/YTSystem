@@ -50,6 +50,29 @@ def _clean_text(text: str) -> str:
     return text.strip()
 
 
+def _parse_retry_after_seconds(error_body: str) -> float | None:
+    match = re.search(r"retry in\s+([0-9]+(?:\.[0-9]+)?)s", error_body, flags=re.IGNORECASE)
+    if not match:
+        return None
+    try:
+        return float(match.group(1))
+    except ValueError:
+        return None
+
+
+def _extract_quota_metric(error_body: str) -> str | None:
+    match = re.search(r"Quota exceeded for metric:\s*([^,\n]+)", error_body, flags=re.IGNORECASE)
+    if not match:
+        return None
+    metric = match.group(1).strip()
+    return metric or None
+
+
+def _is_quota_exceeded(error_body: str) -> bool:
+    normalized = error_body.casefold()
+    return "quota exceeded" in normalized or "billing details" in normalized
+
+
 def _split_text_into_chunks(
     text: str,
     max_chunk_chars: int,
@@ -290,6 +313,46 @@ class GeminiSummarizer:
         self.logger.info("Gemini retry backoff sleeping %.2f seconds", delay)
         time.sleep(delay)
 
+    def _sleep_retry_delay(
+        self,
+        *,
+        attempt: int,
+        hard_deadline: datetime | None,
+        retry_after_seconds: float | None = None,
+        quota_metric: str | None = None,
+    ) -> bool:
+        delay = min(
+            self.settings.retry_backoff_seconds * (self.settings.retry_backoff_multiplier ** attempt),
+            self.settings.retry_backoff_max_seconds,
+        )
+        if retry_after_seconds is not None:
+            delay = max(delay, retry_after_seconds + 0.5)
+
+        remaining = _seconds_until(hard_deadline)
+        if remaining is not None and delay >= max(0.0, remaining - self.settings.deadline_safety_seconds):
+            self.logger.warning(
+                "Skipping Gemini retry because waiting %.2fs would exceed the summary deadline%s",
+                delay,
+                f" (quota_metric={quota_metric})" if quota_metric else "",
+            )
+            return False
+
+        if retry_after_seconds is not None:
+            self.logger.info(
+                "Gemini retry sleeping %.2f seconds using server hint%s",
+                delay,
+                f" (quota_metric={quota_metric})" if quota_metric else "",
+            )
+        else:
+            self.logger.info(
+                "Gemini retry backoff sleeping %.2f seconds%s",
+                delay,
+                f" (quota_metric={quota_metric})" if quota_metric else "",
+            )
+
+        time.sleep(delay)
+        return True
+
     def _call_gemini(
         self,
         *,
@@ -337,6 +400,9 @@ class GeminiSummarizer:
                     body = ex.read().decode("utf-8", errors="replace")
                 except Exception:
                     body = ""
+                retry_after_seconds = _parse_retry_after_seconds(body)
+                quota_metric = _extract_quota_metric(body)
+                quota_exceeded = ex.code == 429 and _is_quota_exceeded(body)
                 self.logger.warning(
                     "Gemini HTTP error at stage=%s attempt=%s/%s: %s %s",
                     stage_label,
@@ -346,7 +412,20 @@ class GeminiSummarizer:
                     body[:500],
                 )
                 if attempt < self.settings.retries_per_call:
-                    self._sleep_backoff(attempt)
+                    if quota_exceeded and retry_after_seconds is None:
+                        self.logger.warning(
+                            "Gemini quota error at stage=%s has no retry hint; aborting retries%s",
+                            stage_label,
+                            f" (quota_metric={quota_metric})" if quota_metric else "",
+                        )
+                        break
+                    if not self._sleep_retry_delay(
+                        attempt=attempt,
+                        hard_deadline=hard_deadline,
+                        retry_after_seconds=retry_after_seconds,
+                        quota_metric=quota_metric,
+                    ):
+                        break
 
             except Exception as ex:
                 last_error = ex
