@@ -238,12 +238,24 @@ class GeminiSummarizer:
             },
         }
 
-        try:
-            text = self._post_json(url=url, payload=payload, timeout=15)
-            return bool(text)
-        except Exception as ex:
-            self.logger.warning("Gemini healthcheck failed: %s", ex)
-            return False
+        attempts = 3
+        for attempt in range(attempts):
+            try:
+                text = self._post_json(url=url, payload=payload, timeout=20)
+                return bool(text)
+            except Exception as ex:
+                self.logger.warning(
+                    "Gemini healthcheck failed on attempt %s/%s: %s",
+                    attempt + 1,
+                    attempts,
+                    ex,
+                )
+                if attempt < attempts - 1:
+                    delay = min(3.0 * (attempt + 1), 10.0)
+                    self.logger.info("Retrying Gemini healthcheck in %.2f seconds", delay)
+                    time.sleep(delay)
+
+        return False
 
     def _target_language_instruction(self, transcript_language: str | None) -> str:
         normalized = (transcript_language or "").strip().lower()

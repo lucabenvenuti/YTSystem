@@ -185,9 +185,9 @@ def main() -> int:
 
         summarizer = GeminiSummarizer(config, logger)
         if not summarizer.healthcheck():
-            raise RuntimeError(
-                "Gemini is not reachable or API key is missing/invalid. "
-                "Check summarization.base_url and GEMINI_API_KEY."
+            logger.warning(
+                "Gemini healthcheck did not pass, but the run will continue and rely on per-request retries. "
+                "Check summarization.base_url and GEMINI_API_KEY if request failures persist."
             )
 
         completed_batch_items: list[dict] = []
