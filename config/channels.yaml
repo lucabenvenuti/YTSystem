@@ -128,3 +128,14 @@ channels:
     id: "UCnjhet_jt-oijILXoOzCZjg"
     language: "english"
     enabled: true
+
+  - name: "Gabrielevagnato"
+    id: "UCh6uYkXWWwSh7shkCAfj7FQ"
+    language: "italian"
+    enabled: true
+
+  - name: "Good News"
+    id: "UCdG5p24FH9cmpjQZeFsLpBg"
+    language: "english"
+    enabled: true
+
