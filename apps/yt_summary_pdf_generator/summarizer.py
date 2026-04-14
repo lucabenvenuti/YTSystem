@@ -769,17 +769,25 @@ Draft:
                 transcript_language=transcript_language,
                 draft_summary=final_text,
             )
-            final_text, active_model, used_fallback_now = self._call_with_summary_model_fallback(
-                prompt=repair_prompt,
-                stage_label="repair-format",
-                hard_deadline=hard_deadline,
-                active_model=active_model,
-            )
-            used_fallback_for_summary = used_fallback_for_summary or used_fallback_now
-            final_text = final_text.strip()
+            repaired_text = final_text
+            try:
+                repaired_text, active_model, used_fallback_now = self._call_with_summary_model_fallback(
+                    prompt=repair_prompt,
+                    stage_label="repair-format",
+                    hard_deadline=hard_deadline,
+                    active_model=active_model,
+                )
+                used_fallback_for_summary = used_fallback_for_summary or used_fallback_now
+                repaired_text = repaired_text.strip()
+            except Exception as ex:
+                self.logger.warning(
+                    "Repair pass failed; keeping final-combine output as-is: %s",
+                    ex,
+                )
+            final_text = repaired_text
 
         if not self._is_normalized_final_format(final_text):
-            raise RuntimeError("Gemini returned a non-normalized final summary format")
+            self.logger.warning("Keeping non-normalized final summary because repair did not produce a normalized format")
 
         if used_fallback_for_summary and self.settings.fallback_cooldown_seconds > 0:
             cooldown = self.settings.fallback_cooldown_seconds
