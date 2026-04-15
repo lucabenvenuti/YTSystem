@@ -21,8 +21,9 @@ from db import (
     mark_pdf_batch_copy_failed,
     insert_pdf_batch_item,
 )
-from distributor import copy_pdf_to_share
+from distributor import copy_file_to_share, copy_pdf_to_share
 from logging_setup import setup_logger
+from html_builder import build_html
 from pdf_builder import build_pdf
 from plot_writer import write_plot
 from report_writer import write_json_report
@@ -283,7 +284,9 @@ def main() -> int:
 
         status = derive_status(stats)
         local_pdf_path = None
+        local_html_path = None
         pdf_name = None
+        html_name = None
 
         if completed_batch_items:
             current = local_now()
@@ -299,8 +302,11 @@ def main() -> int:
                 status = derive_status(stats)
 
             else:
-                pdf_name = local_now().strftime("%Y-%m-%d-%H-%M") + ".pdf"
+                timestamp_stem = local_now().strftime("%Y-%m-%d-%H-%M")
+                pdf_name = timestamp_stem + ".pdf"
+                html_name = timestamp_stem + ".html"
                 local_pdf_path = str(Path(config["paths"]["pdf_dir"]) / pdf_name)
+                local_html_path = str(Path(config["paths"]["pdf_dir"]) / html_name)
 
                 ordered_batch_items = sort_batch_items_for_pdf(completed_batch_items)
 
@@ -309,14 +315,22 @@ def main() -> int:
                     len(ordered_batch_items),
                 )
 
+                document_title = config["pdf"].get("document_title", "YT Daily Summaries")
+
                 build_pdf(
                     output_path=local_pdf_path,
                     batch_items=ordered_batch_items,
-                    document_title=config["pdf"].get("document_title", "YT Daily Summaries"),
+                    document_title=document_title,
+                )
+                build_html(
+                    output_path=local_html_path,
+                    batch_items=ordered_batch_items,
+                    document_title=document_title,
                 )
 
                 try:
                     target_pdf_path = None
+                    target_html_path = None
                     copied_at = None
 
                     if bool(config["distribution"].get("copy_enabled", True)):
@@ -329,7 +343,13 @@ def main() -> int:
                             destination_share=config["distribution"]["destination_share"],
                             verify=bool(config["distribution"].get("verify_after_copy", True)),
                         )
+                        target_html_path = copy_file_to_share(
+                            local_file_path=local_html_path,
+                            destination_share=config["distribution"]["destination_share"],
+                            verify=bool(config["distribution"].get("verify_after_copy", True)),
+                        )
                         copied_at = local_now().isoformat()
+                        logger.info("HTML report copied to: %s", target_html_path)
 
                     mark_pdf_batch_success(
                         conn=conn,
@@ -353,7 +373,7 @@ def main() -> int:
                     status = derive_status(stats)
 
                 except Exception as ex:
-                    logger.exception("PDF publish/copy failed: %s", ex)
+                    logger.exception("PDF/HTML publish/copy failed: %s", ex)
                     mark_pdf_batch_copy_failed(
                         conn=conn,
                         batch_id=batch_id,
