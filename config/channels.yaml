@@ -154,3 +154,8 @@ channels:
     language: "english"
     enabled: true
 
+  - name: "MorningBrew"
+    id: "UCqit4NtRDfdEHKX_zgmAwrg"
+    language: "english"
+    enabled: true
+
