@@ -149,3 +149,8 @@ channels:
     language: "english"
     enabled: true
 
+  - name: "TedEd"
+    id: "UCsooa4yRKGN_zEE8iknghZA"
+    language: "english"
+    enabled: true
+
