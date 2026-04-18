@@ -1,0 +1,4 @@
+pyyaml
+matplotlib
+reportlab
+yt-dlp
