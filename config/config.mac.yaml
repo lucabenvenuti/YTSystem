@@ -5,9 +5,9 @@ app:
 transcript_collector:
   enabled: true
   app_name: yt_transcript_collector
-  start_time: "04:00"
-  end_time: "04:59"
-  no_new_work_after: "04:45"
+  start_time: "00:01"
+  end_time: "23:59"
+  no_new_work_after: "23:45"
   discovery_max_age_days: 7
   min_transcript_length_chars: 200
   keep_audio_cache: true
@@ -19,9 +19,9 @@ transcript_collector:
 summary_pdf_generator:
   enabled: true
   app_name: yt_summary_pdf_generator
-  start_time: "05:00"
-  end_time: "05:59"
-  no_new_work_after: "05:45"
+  start_time: "00:01"
+  end_time: "23:59"
+  no_new_work_after: "23:45"
   summary_phase_minutes: 50
   total_run_minutes: 60
   deadline_safety_seconds: 20
