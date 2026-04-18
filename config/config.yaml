@@ -60,6 +60,8 @@ yt:
   use_cookies_if_present: true
   user_agent: Mozilla/5.0
   referer: https://www.youtube.com/
+  ytdlp_remote_components: ejs:github
+  ytdlp_js_runtime: deno
   subtitle_language_priority:
     - it
     - en

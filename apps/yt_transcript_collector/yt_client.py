@@ -143,6 +143,8 @@ class YTClient:
         self.cookies_path = yt_cfg.get("cookies_path")
         self.user_agent = yt_cfg.get("user_agent", "Mozilla/5.0")
         self.referer = yt_cfg.get("referer", "https://www.youtube.com/")
+        self.ytdlp_remote_components = str(yt_cfg.get("ytdlp_remote_components", "")).strip()
+        self.ytdlp_js_runtime = str(yt_cfg.get("ytdlp_js_runtime", "")).strip()
         self.rss_max_items = int(yt_cfg.get("rss_max_items", 2))
         self.rss_retry_count = int(yt_cfg.get("rss_retry_count", 2))
         self.rss_retry_base_seconds = float(yt_cfg.get("rss_retry_base_seconds", 2.0))
@@ -157,9 +159,12 @@ class YTClient:
         if self.use_cookies_if_present and self.cookies_path and Path(self.cookies_path).exists():
             args += ["--cookies", self.cookies_path]
 
+        if self.ytdlp_remote_components:
+            args += ["--remote-components", self.ytdlp_remote_components]
+        if self.ytdlp_js_runtime:
+            args += ["--js-runtimes", self.ytdlp_js_runtime]
+
         args += [
-            "--remote-components", "ejs:github",
-            "--js-runtimes", "deno",
             "--user-agent", self.user_agent,
             "--referer", self.referer,
         ]
