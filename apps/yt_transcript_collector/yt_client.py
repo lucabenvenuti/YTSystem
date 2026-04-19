@@ -142,6 +142,7 @@ class YTClient:
         self.use_cookies_if_present = bool(yt_cfg.get("use_cookies_if_present", True))
         self.cookies_path = yt_cfg.get("cookies_path")
         self.cookies_from_browser = str(yt_cfg.get("cookies_from_browser", "")).strip()
+        self.cookies_preference = str(yt_cfg.get("cookies_preference", "auto")).strip().lower()
         self.user_agent = yt_cfg.get("user_agent", "Mozilla/5.0")
         self.referer = yt_cfg.get("referer", "https://www.youtube.com/")
         self.ytdlp_remote_components = str(yt_cfg.get("ytdlp_remote_components", "")).strip()
@@ -157,10 +158,26 @@ class YTClient:
     def _base_ytdlp_args(self, *, allow_playlist: bool = False) -> list[str]:
         args = [self.python_executable, "-m", "yt_dlp"]
 
-        if self.use_cookies_if_present and self.cookies_path and Path(self.cookies_path).exists():
-            args += ["--cookies", self.cookies_path]
-        elif self.cookies_from_browser:
-            args += ["--cookies-from-browser", self.cookies_from_browser]
+        cookies_file_available = bool(
+            self.use_cookies_if_present and self.cookies_path and Path(self.cookies_path).exists()
+        )
+        browser_cookies_available = bool(self.cookies_from_browser)
+
+        if self.cookies_preference == "browser":
+            if browser_cookies_available:
+                args += ["--cookies-from-browser", self.cookies_from_browser]
+            elif cookies_file_available:
+                args += ["--cookies", self.cookies_path]
+        elif self.cookies_preference == "file":
+            if cookies_file_available:
+                args += ["--cookies", self.cookies_path]
+            elif browser_cookies_available:
+                args += ["--cookies-from-browser", self.cookies_from_browser]
+        else:
+            if cookies_file_available:
+                args += ["--cookies", self.cookies_path]
+            elif browser_cookies_available:
+                args += ["--cookies-from-browser", self.cookies_from_browser]
 
         if self.ytdlp_remote_components:
             args += ["--remote-components", self.ytdlp_remote_components]
