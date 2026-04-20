@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+import json
+import os
 import platform
 import sys
 from datetime import datetime, timedelta
@@ -56,13 +58,64 @@ def ensure_dirs(config: dict) -> None:
         Path(path).mkdir(parents=True, exist_ok=True)
 
 
-def lock_exists(lock_path: str) -> bool:
-    return Path(lock_path).exists()
+def _pid_is_running(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
+
+
+def lock_exists(lock_path: str, logger=None) -> bool:
+    p = Path(lock_path)
+    if not p.exists():
+        return False
+
+    try:
+        raw = p.read_text(encoding="utf-8").strip()
+    except Exception as ex:
+        if logger is not None:
+            logger.warning("Lock file %s could not be read (%s). Removing stale lock.", lock_path, ex)
+        delete_lock(lock_path)
+        return False
+
+    if not raw:
+        if logger is not None:
+            logger.warning("Lock file %s is empty. Removing stale lock.", lock_path)
+        delete_lock(lock_path)
+        return False
+
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        if logger is not None:
+            logger.warning("Lock file %s uses legacy format. Removing stale lock.", lock_path)
+        delete_lock(lock_path)
+        return False
+
+    pid = int(payload.get("pid") or 0)
+    if _pid_is_running(pid):
+        return True
+
+    if logger is not None:
+        logger.warning(
+            "Lock file %s refers to non-running pid %s. Removing stale lock.",
+            lock_path,
+            pid,
+        )
+    delete_lock(lock_path)
+    return False
 
 
 def create_lock(lock_path: str) -> None:
     Path(lock_path).parent.mkdir(parents=True, exist_ok=True)
-    Path(lock_path).write_text(str(datetime.now()), encoding="utf-8")
+    payload = {
+        "pid": os.getpid(),
+        "created_at": datetime.now().isoformat(),
+    }
+    Path(lock_path).write_text(json.dumps(payload), encoding="utf-8")
 
 
 def delete_lock(lock_path: str) -> None:
@@ -172,7 +225,7 @@ def main() -> int:
     )
 
     lock_path = config["paths"]["summary_lock"]
-    if lock_exists(lock_path):
+    if lock_exists(lock_path, logger):
         logger.info("Summary generator already running, exiting.")
         return 0
 
