@@ -127,7 +127,7 @@ pdf:
 
 distribution:
   copy_enabled: true
-  destination_share: "\\muc-data.eas.local\Public\LB"
+  destination_share: '\\muc-data.eas.local\Public\LB'
   verify_after_copy: true
 
 logging:
