@@ -169,3 +169,8 @@ channels:
     id: "UCFCEuCsyWP0YkP3CZ3Mr01Q"
     language: "english"
     enabled: true
+
+  - name: "FinancialHistorian"
+    id: "UCZ7keJV8Gj-6UbGgkOKs4uw"
+    language: "english"
+    enabled: true
